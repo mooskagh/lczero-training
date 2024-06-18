@@ -22,11 +22,28 @@ func main() {
 			defer scanner.Close()
 
 			var count int64 = 0
+
 			go func() {
+				writer, err := archive.NewArchiveFileWriter(args[0], false, uint32(structSize))
+				if err != nil {
+					fmt.Println("Error creating archive file:", err)
+					return
+				}
+				defer writer.Close()
+
 				for {
 					fc := <-fileStream
 					fmt.Printf("[%d] %s (%d)\n", count, fc.Filename, len(fc.Content))
 					atomic.AddInt64(&count, 1)
+
+					err := writer.Write(archive.FileContent{
+						Filename: fc.Filename,
+						Content:  fc.Content,
+					})
+					if err != nil {
+						fmt.Println("Error writing file to archive:", err)
+						return
+					}
 				}
 			}()
 
@@ -41,5 +58,4 @@ func main() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.Execute()
 
-	archive.NewArchiveFileWriter("/tmp/test.zst", false, 0)
 }

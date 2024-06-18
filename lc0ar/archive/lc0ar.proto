@@ -1,16 +1,22 @@
 syntax = "proto2";
 
 package archive;
+option go_package = "github.com/LeelaChessZero/lc0ar/archive";
 
-message ChunkMetadata {
-  required string name = 1;
-  required uint32 size_bytes = 2;
+message FileMetadata {
+  optional string name = 1;
+  optional uint32 size_bytes = 2;
 }
 
 message TrainingDataArchive {
-  required string magic = 1;
-  required uint32 version = 2;
-  required uint32 frame_size_bytes = 3;
-  repeated ChunkMetadata chunks = 4;
-  required bytes transposed_data = 5;
+  optional string magic = 1;
+  optional uint32 version = 2;
+  optional uint32 payload_size_bytes = 3;
+  enum PayloadType {
+    PLAIN_DATA = 1;
+    TRANSPOSED_DATA = 2;
+  }
+  optional PayloadType payload_type = 4;
+  repeated FileMetadata file_metadata = 5;
+  optional uint32 transposition_page_size_bytes = 6;
 };
