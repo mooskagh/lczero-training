@@ -37,19 +37,16 @@ func divideRoundUp(a, b uint32) uint32 {
 	return (a + b - 1) / b
 }
 
-func (w *archiveFileWriter) writeBlock(block *block) error {
-	// Transposing N×M into M×N.
-	src := block.payload.Bytes()
-	fmt.Printf("2ppayload length: %d\n", len(src))
+func transpose(m uint32, src []byte) []byte {
+	const tileSize = 256
+	const numWorkers = 10
 	dst := make([]byte, len(src))
-	const tileSize = 64
-	m := w.pageSize
-	n := uint32(len(src)) / m
 
+	// Transposing N×M into M×N.
+	n := uint32(len(src)) / m
 	m_tiles := divideRoundUp(m, tileSize)
 	n_tiles := divideRoundUp(n, tileSize)
 
-	const numWorkers = 10
 	tasks := make(chan uint32)
 	var wg sync.WaitGroup
 
@@ -57,14 +54,14 @@ func (w *archiveFileWriter) writeBlock(block *block) error {
 		defer wg.Done()
 
 		for tile_id := range tasks {
-			var i = tile_id / n_tiles
-			var j = tile_id % n_tiles
-			var i_limit = min(tileSize, m-i*tileSize)
-			var j_limit = min(tileSize, n-j*tileSize)
+			var i_tile = tile_id / m_tiles
+			var j_tile = tile_id % m_tiles
+			var i_limit = min(tileSize, n-i_tile*tileSize)
+			var j_limit = min(tileSize, m-j_tile*tileSize)
 			for ii := uint32(0); ii < i_limit; ii++ {
 				for jj := uint32(0); jj < j_limit; jj++ {
-					dst[(j*tileSize+jj)*m+i*tileSize+ii] =
-						src[(i*tileSize+ii)*n+j*tileSize+jj]
+					dst[(j_tile*tileSize+jj)*n+i_tile*tileSize+ii] =
+						src[(i_tile*tileSize+ii)*m+j_tile*tileSize+jj]
 				}
 			}
 		}
@@ -82,6 +79,13 @@ func (w *archiveFileWriter) writeBlock(block *block) error {
 	close(tasks)
 	wg.Wait() // Wait for all goroutines to finish
 
+	return dst
+}
+
+func (w *archiveFileWriter) writeBlock(block *block) error {
+	src := block.payload.Bytes()
+	dst := transpose(w.pageSize, src)
+
 	headerBytes, err := proto.Marshal(&block.header)
 	if err != nil {
 		return fmt.Errorf("failed to marshal header: %w", err)
@@ -93,7 +97,6 @@ func (w *archiveFileWriter) writeBlock(block *block) error {
 	if _, err := (*w.file).Write(headerBytes); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
-	fmt.Printf("payload length: %d\n", len(dst))
 	if _, err := (*w.file).Write(dst); err != nil {
 		return fmt.Errorf("failed to write payload: %w", err)
 	}
@@ -168,5 +171,10 @@ func NewArchiveFileWriter(
 }
 
 func (w *archiveFileWriter) Close() error {
+	if w.block.payload.Len() >= 0 {
+		if err := w.flush(); err != nil {
+			return err
+		}
+	}
 	return w.file.Close()
 }

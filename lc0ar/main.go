@@ -19,37 +19,37 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			scanner := scanner.NewScanner(10, 5)
 			fileStream := scanner.GetOutput()
-			defer scanner.Close()
 
 			var count int64 = 0
 
 			go func() {
-				writer, err := archive.NewArchiveFileWriter(args[0], false, uint32(structSize))
-				if err != nil {
-					fmt.Println("Error creating archive file:", err)
-					return
+				for i := 1; i < len(args); i++ {
+					scanner.AddInput(args[i])
 				}
-				defer writer.Close()
-
-				for {
-					fc := <-fileStream
-					fmt.Printf("[%d] %s (%d)\n", count, fc.Filename, len(fc.Content))
-					atomic.AddInt64(&count, 1)
-
-					err := writer.Write(archive.FileContent{
-						Filename: fc.Filename,
-						Content:  fc.Content,
-					})
-					if err != nil {
-						fmt.Println("Error writing file to archive:", err)
-						return
-					}
-				}
+				scanner.Close()
 			}()
 
-			for i := 1; i < len(args); i++ {
-				scanner.AddInput(args[i])
+			writer, err := archive.NewArchiveFileWriter(args[0], false, uint32(structSize))
+			if err != nil {
+				fmt.Println("Error creating archive file:", err)
+				return
 			}
+			defer writer.Close()
+
+			for fc := range fileStream {
+				fmt.Printf("[%d] %s (%d)\n", count, fc.Filename, len(fc.Content))
+				atomic.AddInt64(&count, 1)
+
+				err := writer.Write(archive.FileContent{
+					Filename: fc.Filename,
+					Content:  fc.Content,
+				})
+				if err != nil {
+					fmt.Println("Error writing file to archive:", err)
+					return
+				}
+			}
+
 		},
 	}
 	addCmd.Flags().IntVarP(&structSize, "struct-size", "s", 8356, "Size of the struct to use")
