@@ -5,6 +5,7 @@ from .describe import describe
 from .eval import eval
 from .init import init
 from .overfit import overfit
+from .statediff import statediff
 from .training import train
 from .tune_lr import tune_lr
 
@@ -190,6 +191,42 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
     )
     dataloader_parser.set_defaults(func=run)
 
+    # State diff command
+    statediff_parser = subparsers.add_parser(
+        "statediff",
+        help=(
+            "Compare the structure of the training state between the model "
+            "initialized from the config and a checkpoint."
+        ),
+    )
+    statediff_parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the training config file.",
+    )
+    statediff_parser.add_argument(
+        "--old",
+        type=str,
+        default="checkpoint",
+        help=(
+            "Reference state to compare from. Use 'model' for the empty state "
+            "from the config, 'checkpoint' for the checkpoint specified in the "
+            "config, or provide a path to a checkpoint directory."
+        ),
+    )
+    statediff_parser.add_argument(
+        "--new",
+        type=str,
+        default="model",
+        help=(
+            "State to compare against. Use 'model' for the empty state from "
+            "the config, 'checkpoint' for the checkpoint specified in the "
+            "config, or provide a path to a checkpoint directory."
+        ),
+    )
+    statediff_parser.set_defaults(func=run)
+
 
 def run(args: argparse.Namespace) -> None:
     if args.subcommand == "init":
@@ -234,6 +271,12 @@ def run(args: argparse.Namespace) -> None:
         probe_dataloader(
             config_filename=args.config,
             num_batches=args.num_batches,
+        )
+    elif args.subcommand == "statediff":
+        statediff(
+            config_filename=args.config,
+            old_spec=args.old,
+            new_spec=args.new,
         )
 
 
