@@ -117,6 +117,7 @@ files = [
   'csrc/loader/stages/chunk_source_loader.cc',
   'csrc/loader/stages/chunk_rescorer.cc',
   'csrc/loader/stages/chunk_unpacker.cc',
+  'csrc/loader/stages/debug_chunk_source_generator.cc',
   'csrc/loader/stages/file_path_provider.cc',
   'csrc/loader/stages/stage_factory.cc',
   'csrc/loader/chunk_source/debug_chunk_source.cc',
@@ -204,6 +205,14 @@ chunk_source_loader_test = executable(
   link_with : loader_lib,
 )
 
+debug_chunk_source_generator_test = executable(
+  'debug_chunk_source_generator_test',
+  'csrc/loader/stages/debug_chunk_source_generator_test.cc',
+  include_directories : includes,
+  dependencies : test_deps + [absl_deps['synchronization'], absl_deps['log']],
+  link_with : loader_lib,
+)
+
 shuffling_chunk_pool_test = executable(
   'shuffling_chunk_pool_test',
   'csrc/loader/stages/shuffling_chunk_pool_test.cc',
@@ -286,6 +295,7 @@ test('stream_shuffler_test', stream_shuffler_test)
 test('queue_test', queue_test)
 test('file_path_provider_test', file_path_provider_test)
 test('chunk_source_loader_test', chunk_source_loader_test)
+test('debug_chunk_source_generator_test', debug_chunk_source_generator_test)
 test('shuffling_chunk_pool_test', shuffling_chunk_pool_test)
 test('chunk_rescorer_test', chunk_rescorer_test)
 test('chunk_unpacker_test', chunk_unpacker_test)

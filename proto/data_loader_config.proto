@@ -24,6 +24,18 @@ message ChunkSourceLoaderConfig {
   optional uint64 queue_capacity = 3 [default = 16];
 }
 
+// Configuration for debug chunk source generator producing synthetic
+// ChunkSource instances. Maps to DebugChunkSourceGenerator in
+// csrc/loader/stages/debug_chunk_source_generator.h
+message DebugChunkSourceGeneratorConfig {
+  // Mean number of chunks per generated source.
+  optional double mean_chunks_per_chunk_source = 1 [default = 100.0];
+  // Number of chunk sources generated before initial scan completion.
+  optional uint64 initial_chunk_sources = 2 [default = 0];
+  // Rate of new chunk sources produced after the initial scan (per minute).
+  optional double chunk_sources_per_minute = 3 [default = 0.0];
+}
+
 // Configuration for shuffling chunk pool that manages chunk shuffling and
 // loading. Maps to ShufflingChunkPoolOptions in
 // csrc/loader/chunk_feed/shuffling_chunk_pool.h
@@ -118,6 +130,7 @@ message StageConfig {
   optional ShufflingFrameSamplerConfig shuffling_frame_sampler = 6;
   optional TensorGeneratorConfig tensor_generator = 7;
   optional ChunkRescorerConfig chunk_rescorer = 8;
+  optional DebugChunkSourceGeneratorConfig debug_chunk_source_generator = 9;
 }
 
 // Main configuration class for the DataLoader containing all component
