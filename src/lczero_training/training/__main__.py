@@ -201,6 +201,11 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
         default=10,
         help="Number of batches to fetch from the data loader.",
     )
+    dataloader_parser.add_argument(
+        "--debug-chunk-file",
+        type=str,
+        help="Optional path to write debug chunk metadata for each batch.",
+    )
     dataloader_parser.set_defaults(func=run)
 
 
@@ -249,6 +254,7 @@ def run(args: argparse.Namespace) -> None:
         probe_dataloader(
             config_filename=args.config,
             num_batches=args.num_batches,
+            debug_chunk_file=getattr(args, "debug_chunk_file", None),
         )
 
 
