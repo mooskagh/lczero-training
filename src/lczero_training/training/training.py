@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 from functools import partial
-from typing import Callable, Dict, Generator, Tuple, cast
+from typing import Callable, Dict, Generator, Optional, Tuple, TypedDict, cast
 
 import jax
 import jax.numpy as jnp
@@ -24,8 +24,12 @@ from lczero_training.convert.jax_to_leela import (
 from lczero_training.dataloader import DataLoader, make_dataloader
 from lczero_training.model.loss_function import LczeroLoss
 from lczero_training.model.model import LczeroModel
-from lczero_training.training.optimizer import make_gradient_transformation
+from lczero_training.training.optimizer import (
+    make_gradient_transformation,
+    make_lr_schedule,
+)
 from lczero_training.training.state import JitTrainingState, TrainingState
+from lczero_training.training.tensorboard import StepMetrics, TensorboardLogger
 from proto.root_config_pb2 import RootConfig
 
 logger = logging.getLogger(__name__)
@@ -38,11 +42,17 @@ def from_dataloader(
         yield loader.get_next()
 
 
+class TrainStepMetrics(TypedDict):
+    loss: jax.Array
+    unweighted_losses: Dict[str, jax.Array]
+    grad_norm: jax.Array
+
+
 class Training:
     optimizer_tx: optax.GradientTransformation
     train_step: Callable[
         [optax.GradientTransformation, JitTrainingState, dict],
-        Tuple[JitTrainingState, Tuple[jax.Array, Dict[str, jax.Array]]],
+        Tuple[JitTrainingState, TrainStepMetrics],
     ]
 
     def __init__(
@@ -76,7 +86,7 @@ class Training:
             optimizer_tx: optax.GradientTransformation,
             jit_state: JitTrainingState,
             batch: dict,
-        ) -> Tuple[JitTrainingState, Tuple[jax.Array, Dict[str, jax.Array]]]:
+        ) -> Tuple[JitTrainingState, TrainStepMetrics]:
             model = nnx.merge(graphdef, jit_state.model_state)
 
             def loss_for_grad(
@@ -123,12 +133,18 @@ class Training:
             )
 
             mean_unweighted = tree_util.tree_map(jnp.mean, unweighted_losses)
-            return new_jit_state, (mean_loss, mean_unweighted)
+            grad_norm = optax.global_norm(mean_grads)
+
+            return new_jit_state, {
+                "loss": mean_loss,
+                "unweighted_losses": mean_unweighted,
+                "grad_norm": grad_norm,
+            }
 
         self.train_step = cast(
             Callable[
                 [optax.GradientTransformation, JitTrainingState, dict],
-                Tuple[JitTrainingState, Tuple[jax.Array, Dict[str, jax.Array]]],
+                Tuple[JitTrainingState, TrainStepMetrics],
             ],
             _step,
         )
@@ -138,6 +154,9 @@ class Training:
         jit_state: JitTrainingState,
         datagen: Generator[Tuple[np.ndarray, ...], None, None],
         num_steps: int,
+        *,
+        tensorboard_logger: Optional[TensorboardLogger] = None,
+        lr_schedule: Optional[Callable[[int], jax.Array]] = None,
     ) -> JitTrainingState:
         assert jit_state.opt_state is not None
         for _ in range(num_steps):
@@ -145,7 +164,7 @@ class Training:
             batch = next(datagen)
             b_inputs, b_policy, b_values, _, b_movesleft = batch
             logger.info("Fetched batch from dataloader")
-            jit_state, (loss, unweighted_losses) = self.train_step(
+            jit_state, metrics = self.train_step(
                 self.optimizer_tx,
                 jit_state,
                 {
@@ -155,9 +174,34 @@ class Training:
                     "movesleft_targets": b_movesleft,
                 },
             )
+            loss = metrics["loss"]
+            unweighted_losses = metrics["unweighted_losses"]
+            grad_norm = metrics["grad_norm"]
             logger.info(
                 f"Step {jit_state.step}, Loss: {loss}, Unweighted losses:"
                 f" {unweighted_losses}"
+            )
+            if tensorboard_logger is not None:
+                step_value = int(jit_state.step)
+                lr_value: Optional[float] = None
+                if lr_schedule is not None:
+                    lr_value = float(lr_schedule(step_value))
+                tensorboard_logger.log_step(
+                    StepMetrics(
+                        step=step_value,
+                        learning_rate=lr_value,
+                        weighted_loss=float(loss),
+                        unweighted_losses={
+                            name: float(value)
+                            for name, value in unweighted_losses.items()
+                        },
+                        gradient_norm=float(grad_norm),
+                    )
+                )
+        if tensorboard_logger is not None:
+            tensorboard_logger.log_epoch(
+                step=int(jit_state.step),
+                model_state=jit_state.model_state,
             )
         return jit_state
 
@@ -206,16 +250,33 @@ def train(config_filename: str) -> None:
         config.training.optimizer,
         max_grad_norm=getattr(config.training, "max_grad_norm", 0.0),
     )
+    lr_schedule = make_lr_schedule(config.training.optimizer)
     training = Training(
         optimizer_tx=optimizer_tx,
         graphdef=model,
         loss_fn=LczeroLoss(config=config.training.losses),
     )
-    new_state = training.run(
-        jit_state,
-        from_dataloader(make_dataloader(config.data_loader)),
-        config.training.schedule.steps_per_network,
-    )
+    tensorboard_logger: Optional[TensorboardLogger] = None
+    if config.export.HasField("tensorboard_path"):
+        data_loader_config = (
+            config.data_loader if config.HasField("data_loader") else None
+        )
+        tensorboard_logger = TensorboardLogger(
+            config.export.tensorboard_path,
+            data_loader_config=data_loader_config,
+            schedule_config=config.training.schedule,
+        )
+    try:
+        new_state = training.run(
+            jit_state,
+            from_dataloader(make_dataloader(config.data_loader)),
+            config.training.schedule.steps_per_network,
+            tensorboard_logger=tensorboard_logger,
+            lr_schedule=lr_schedule,
+        )
+    finally:
+        if tensorboard_logger is not None:
+            tensorboard_logger.close()
 
     if config.export.HasField("path"):
         date_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

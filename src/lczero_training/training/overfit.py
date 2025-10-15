@@ -210,17 +210,15 @@ def overfit(
             ) -> None:
                 nonlocal jit_state
                 for _ in range(num_steps):
-                    jit_state, (loss, unweighted_losses) = training.train_step(
+                    jit_state, metrics = training.train_step(
                         optimizer_tx,
                         jit_state,
                         train_batch,
                     )
-                    loss_value, unweighted_host = jax.device_get(
-                        (loss, unweighted_losses)
-                    )
-                    loss_value = float(np.asarray(loss_value))
+                    loss_value = float(np.asarray(metrics["loss"]))
                     unweighted_host = tree_util.tree_map(
-                        lambda x: float(np.asarray(x)), unweighted_host
+                        lambda x: float(np.asarray(x)),
+                        metrics["unweighted_losses"],
                     )
 
                     eval_loss, eval_unweighted = eval_step(
@@ -252,17 +250,15 @@ def overfit(
         else:
             logger.info("Starting overfit loop for %d steps", num_steps)
             for _ in range(num_steps):
-                jit_state, (loss, unweighted_losses) = training.train_step(
+                jit_state, metrics = training.train_step(
                     optimizer_tx,
                     jit_state,
                     prepared_batch_a,
                 )
-                loss_value, unweighted_host = jax.device_get(
-                    (loss, unweighted_losses)
-                )
-                loss_value = float(np.asarray(loss_value))
+                loss_value = float(np.asarray(metrics["loss"]))
                 unweighted_host = tree_util.tree_map(
-                    lambda x: float(np.asarray(x)), unweighted_host
+                    lambda x: float(np.asarray(x)),
+                    metrics["unweighted_losses"],
                 )
                 step_value = int(
                     np.asarray(jax.device_get(jit_state.step)).flat[0]
