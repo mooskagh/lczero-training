@@ -6,6 +6,7 @@
 #include "loader/stages/chunk_rescorer.h"
 #include "loader/stages/chunk_source_loader.h"
 #include "loader/stages/chunk_unpacker.h"
+#include "loader/stages/debug_chunk_source_generator.h"
 #include "loader/stages/file_path_provider.h"
 #include "loader/stages/shuffling_chunk_pool.h"
 #include "loader/stages/shuffling_frame_sampler.h"
@@ -23,7 +24,8 @@ int CountStageConfigs(const StageConfig& config) {
          static_cast<int>(config.has_chunk_rescorer()) +
          static_cast<int>(config.has_chunk_unpacker()) +
          static_cast<int>(config.has_shuffling_frame_sampler()) +
-         static_cast<int>(config.has_tensor_generator());
+         static_cast<int>(config.has_tensor_generator()) +
+         static_cast<int>(config.has_debug_chunk_source_generator());
 }
 
 }  // namespace
@@ -62,6 +64,10 @@ std::unique_ptr<Stage> CreateStage(const StageConfig& config,
   if (config.has_tensor_generator()) {
     return std::make_unique<TensorGenerator>(config.tensor_generator(),
                                              existing_stages);
+  }
+  if (config.has_debug_chunk_source_generator()) {
+    return std::make_unique<DebugChunkSourceGenerator>(
+        config.debug_chunk_source_generator(), existing_stages);
   }
 
   throw std::runtime_error(
