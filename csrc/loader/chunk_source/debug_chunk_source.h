@@ -33,7 +33,8 @@ class DebugChunkSource : public ChunkSource {
  private:
   std::string GetChunkSortKey() const override;
   size_t GetChunkCount() const override;
-  std::optional<std::string> GetChunkData(size_t index) override;
+  std::optional<std::vector<V6TrainingData>> GetChunkData(
+      size_t index) override;
 
   uint64_t id_;
   double mean_chunk_count_;

@@ -72,23 +72,21 @@ std::vector<float> CollectWeights(const fs::path& tar_path,
                                       index, total, 100.0 * index / total);
     }
 
-    const std::optional<std::string> chunk = source->GetChunkData(index);
+    const std::optional<std::vector<V6TrainingData>> chunk =
+        source->GetChunkData(index);
     if (!chunk) {
       LOG(WARNING) << "Skipping unreadable chunk " << index << " in "
                    << tar_path.string();
       continue;
     }
 
-    if (chunk->size() < sizeof(V6TrainingData)) continue;
-    const size_t frame_count = chunk->size() / sizeof(V6TrainingData);
+    if (chunk->empty()) continue;
 
-    for (size_t frame = 0; frame < frame_count; ++frame) {
-      const auto* entry = reinterpret_cast<const V6TrainingData*>(
-          chunk->data() + frame * sizeof(V6TrainingData));
-      const float weight = ComputePositionSamplingWeight(*entry, config);
+    for (const auto& entry : *chunk) {
+      const float weight = ComputePositionSamplingWeight(entry, config);
       weights.push_back(weight);
       if (max_weighted && weight > max_weighted->weight) {
-        max_weighted->data = *entry;
+        max_weighted->data = entry;
         max_weighted->weight = weight;
       }
     }

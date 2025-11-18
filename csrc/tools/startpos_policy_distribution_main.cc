@@ -93,11 +93,11 @@ void ProcessTarFile(const fs::path& tar_path, std::ostream& output) {
   const std::string sort_key = source->GetChunkSortKey();
 
   for (size_t i = 0, count = source->GetChunkCount(); i < count; ++i) {
-    const std::optional<std::string> chunk = source->GetChunkData(i);
-    if (!chunk || chunk->size() < sizeof(V6TrainingData)) continue;
+    const std::optional<std::vector<V6TrainingData>> chunk =
+        source->GetChunkData(i);
+    if (!chunk || chunk->empty()) continue;
 
-    V6TrainingData entry;
-    std::memcpy(&entry, chunk->data(), sizeof(entry));
+    const V6TrainingData& entry = chunk->front();
     if (!MatchesStartPosition(entry)) continue;
 
     WriteRow(output, sort_key, i, entry);

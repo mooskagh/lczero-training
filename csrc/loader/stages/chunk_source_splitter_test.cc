@@ -26,8 +26,8 @@ class FixedCountChunkSource : public ChunkSource {
  private:
   std::string GetChunkSortKey() const override { return key_; }
   size_t GetChunkCount() const override { return count_; }
-  std::optional<std::string> GetChunkData(size_t) override {
-    return std::string("x");
+  std::optional<std::vector<V6TrainingData>> GetChunkData(size_t) override {
+    return std::vector<V6TrainingData>{V6TrainingData{}};
   }
 
   std::string key_;

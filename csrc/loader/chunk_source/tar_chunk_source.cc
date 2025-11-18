@@ -167,7 +167,8 @@ void TarChunkSource::Index() {
 
 size_t TarChunkSource::GetChunkCount() const { return files_.size(); }
 
-std::optional<std::string> TarChunkSource::GetChunkData(size_t index) {
+std::optional<std::vector<V6TrainingData>> TarChunkSource::GetChunkData(
+    size_t index) {
   if (index >= files_.size()) {
     throw std::out_of_range("File index out of range");
   }
@@ -177,12 +178,22 @@ std::optional<std::string> TarChunkSource::GetChunkData(size_t index) {
   fread(content.data(), 1, file_entry.size, file_);
   if (file_entry.is_gzip) {
     try {
-      return GunzipBuffer(content);
+      content = GunzipBuffer(content);
     } catch (const GunzipError& e) {
       return std::nullopt;
     }
   }
-  return content;
+  if (content.empty()) return std::nullopt;
+  if (content.size() % sizeof(V6TrainingData) != 0) {
+    LOG(WARNING) << "Chunk " << index << " from " << filename_ << " size "
+                 << content.size()
+                 << " is not a multiple of V6TrainingData size "
+                 << sizeof(V6TrainingData);
+    return std::nullopt;
+  }
+  std::vector<V6TrainingData> result(content.size() / sizeof(V6TrainingData));
+  std::memcpy(result.data(), content.data(), content.size());
+  return result;
 }
 
 std::optional<std::string> TarChunkSource::GetChunkPrefix(size_t index,

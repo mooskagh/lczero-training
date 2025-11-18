@@ -22,9 +22,20 @@ std::string RawFileChunkSource::GetChunkSortKey() const {
 
 size_t RawFileChunkSource::GetChunkCount() const { return 1; }
 
-std::optional<std::string> RawFileChunkSource::GetChunkData(size_t index) {
+std::optional<std::vector<V6TrainingData>> RawFileChunkSource::GetChunkData(
+    size_t index) {
   if (index != 0) return std::nullopt;
-  return ReadFileToString(filename_);
+  std::string data = ReadFileToString(filename_);
+  if (data.empty()) return std::nullopt;
+  if (data.size() % sizeof(V6TrainingData) != 0) {
+    LOG(WARNING) << "File " << filename_ << " size " << data.size()
+                 << " is not a multiple of V6TrainingData size "
+                 << sizeof(V6TrainingData);
+    return std::nullopt;
+  }
+  std::vector<V6TrainingData> result(data.size() / sizeof(V6TrainingData));
+  std::memcpy(result.data(), data.data(), data.size());
+  return result;
 }
 
 }  // namespace training

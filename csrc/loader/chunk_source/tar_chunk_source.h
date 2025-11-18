@@ -17,7 +17,8 @@ class TarChunkSource : public ChunkSource {
   ~TarChunkSource() override;
   std::string GetChunkSortKey() const override;
   size_t GetChunkCount() const override;
-  std::optional<std::string> GetChunkData(size_t index) override;
+  std::optional<std::vector<V6TrainingData>> GetChunkData(
+      size_t index) override;
   std::optional<std::string> GetChunkPrefix(size_t index, size_t max_bytes);
 
  private:

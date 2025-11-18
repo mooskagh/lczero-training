@@ -93,25 +93,17 @@ bool PlanesMatch(const V6TrainingData& entry,
 }
 
 std::optional<size_t> FindMatchingFrameIndex(
-    const std::string& chunk, absl::Span<const uint64_t> expected) {
-  if (chunk.size() < sizeof(V6TrainingData)) return std::nullopt;
-  if (chunk.size() % sizeof(V6TrainingData) != 0) {
-    LOG(WARNING) << "Chunk size " << chunk.size()
-                 << " is not a multiple of V6TrainingData size ("
-                 << sizeof(V6TrainingData) << ").";
-  }
-
-  const size_t frame_count = chunk.size() / sizeof(V6TrainingData);
-  for (size_t frame = 0; frame < frame_count; ++frame) {
-    const auto* entry = reinterpret_cast<const V6TrainingData*>(
-        chunk.data() + frame * sizeof(V6TrainingData));
-    if (PlanesMatch(*entry, expected)) return frame;
+    const std::vector<V6TrainingData>& chunk,
+    absl::Span<const uint64_t> expected) {
+  for (size_t frame = 0; frame < chunk.size(); ++frame) {
+    if (PlanesMatch(chunk[frame], expected)) return frame;
   }
   return std::nullopt;
 }
 
 void WriteChunk(const fs::path& output_dir, absl::string_view base_name,
-                size_t index, size_t frame_index, const std::string& chunk) {
+                size_t index, size_t frame_index,
+                const std::vector<V6TrainingData>& chunk) {
   fs::create_directories(output_dir);
   const fs::path output_path =
       output_dir / absl::StrCat(base_name, "_", index, "_", frame_index, ".gz");
@@ -121,8 +113,8 @@ void WriteChunk(const fs::path& output_dir, absl::string_view base_name,
     LOG(FATAL) << "Failed to open output file: " << output_path.string();
   }
 
-  size_t remaining = chunk.size();
-  const char* data = chunk.data();
+  size_t remaining = chunk.size() * sizeof(V6TrainingData);
+  const char* data = reinterpret_cast<const char*>(chunk.data());
   while (remaining > 0) {
     const unsigned int to_write = static_cast<unsigned int>(
         std::min<size_t>(remaining, std::numeric_limits<unsigned int>::max()));
@@ -154,7 +146,8 @@ void ProcessTar(const fs::path& tar_path, const fs::path& output_dir,
 
   for (size_t index = 0, total = source->GetChunkCount(); index < total;
        ++index) {
-    const std::optional<std::string> chunk = source->GetChunkData(index);
+    const std::optional<std::vector<V6TrainingData>> chunk =
+        source->GetChunkData(index);
     if (!chunk) {
       LOG(WARNING) << "Skipping unreadable chunk " << index << " in "
                    << tar_path.string();
