@@ -19,6 +19,7 @@ data_loader {
     input: "file_path_provider"
     chunk_source_loader {
       threads: 1  # Threads for loading chunks
+      frame_format: V6TrainingData  # Training data format (V6TrainingData or V7TrainingData)
       output {
         queue_capacity: 16  # Output queue for chunk sources
       }

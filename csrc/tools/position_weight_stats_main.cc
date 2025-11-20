@@ -32,15 +32,16 @@ namespace {
 
 namespace fs = std::filesystem;
 
-using ::lczero::V6TrainingData;
 using ::lczero::training::ChunkSource;
+using ::lczero::training::ChunkSourceLoaderConfig;
 using ::lczero::training::ComputePositionSamplingWeight;
+using ::lczero::training::FrameType;
 using ::lczero::training::PositionSamplingConfig;
 using ::lczero::training::PrintTrainingDataEntry;
 using ::lczero::training::TarChunkSource;
 
 struct WeightedPosition {
-  V6TrainingData data;
+  FrameType data;
   float weight;
 };
 
@@ -62,8 +63,8 @@ std::vector<float> CollectWeights(const fs::path& tar_path,
                                   const PositionSamplingConfig& config,
                                   WeightedPosition* max_weighted) {
   std::vector<float> weights;
-  std::unique_ptr<ChunkSource> source =
-      std::make_unique<TarChunkSource>(tar_path);
+  std::unique_ptr<ChunkSource> source = std::make_unique<TarChunkSource>(
+      tar_path, ChunkSourceLoaderConfig::V6TrainingData);
 
   const size_t total = source->GetChunkCount();
   for (size_t index = 0; index < total; ++index) {
@@ -72,7 +73,7 @@ std::vector<float> CollectWeights(const fs::path& tar_path,
                                       index, total, 100.0 * index / total);
     }
 
-    const std::optional<std::vector<V6TrainingData>> chunk =
+    const std::optional<std::vector<FrameType>> chunk =
         source->GetChunkData(index);
     if (!chunk) {
       LOG(WARNING) << "Skipping unreadable chunk " << index << " in "

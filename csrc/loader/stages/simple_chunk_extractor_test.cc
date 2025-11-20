@@ -32,8 +32,7 @@ class MockChunkSource : public ChunkSource {
   std::string GetChunkSortKey() const override { return sort_key_; }
   size_t GetChunkCount() const override { return chunk_count_; }
 
-  std::optional<std::vector<V6TrainingData>> GetChunkData(
-      size_t index) override {
+  std::optional<std::vector<FrameType>> GetChunkData(size_t index) override {
     if (index >= chunks_.size()) return std::nullopt;
     return chunks_[index];
   }

@@ -11,6 +11,7 @@
 
 #include "libs/lc0/src/syzygy/syzygy.h"
 #include "libs/lc0/src/trainingdata/rescorer.h"
+#include "loader/frame_type.h"
 #include "loader/stages/stage.h"
 #include "loader/stages/training_chunk.h"
 #include "proto/data_loader_config.pb.h"
@@ -30,11 +31,11 @@ class ChunkRescorer
  public:
   using InputType = TrainingChunk;
   using OutputType = TrainingChunk;
-  using RescoreFn = std::function<std::vector<V6TrainingData>(
-      std::vector<V6TrainingData>, SyzygyTablebase*, float, float, float, int)>;
+  using RescoreFn = std::function<std::vector<FrameType>(
+      std::vector<FrameType>, SyzygyTablebase*, float, float, float, int)>;
 
   explicit ChunkRescorer(const ChunkRescorerConfig& config,
-                         RescoreFn rescore_fn = RescoreTrainingData);
+                         RescoreFn rescore_fn = RescoreTrainingData<FrameType>);
   ~ChunkRescorer() override;
 
   void Start() override;

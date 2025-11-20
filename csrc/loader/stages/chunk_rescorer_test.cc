@@ -14,10 +14,10 @@ namespace training {
 
 namespace {
 
-std::vector<V6TrainingData> StubRescore(std::vector<V6TrainingData> frames,
-                                        SyzygyTablebase*, float dist_temp,
-                                        float dist_offset, float dtz_boost,
-                                        int new_input_format) {
+std::vector<FrameType> StubRescore(std::vector<FrameType> frames,
+                                   SyzygyTablebase*, float dist_temp,
+                                   float dist_offset, float dtz_boost,
+                                   int new_input_format) {
   (void)dist_offset;
   (void)dtz_boost;
   (void)new_input_format;
@@ -64,7 +64,7 @@ class ChunkRescorerTest : public ::testing::Test {
     config_.set_new_input_format(-1);
   }
 
-  TrainingChunk MakeChunk(std::vector<V6TrainingData> frames,
+  TrainingChunk MakeChunk(std::vector<FrameType> frames,
                           std::string sort_key = "alpha", size_t index = 3,
                           uint32_t use = 7) {
     TrainingChunk chunk;
@@ -84,7 +84,7 @@ TEST_F(ChunkRescorerTest, AppliesInjectedRescoreFunction) {
   rescorer.SetInputs({input_queue_.get()});
   rescorer.Start();
 
-  V6TrainingData frame{};
+  FrameType frame{};
   frame.result_q = 0.1f;
   auto producer = input_queue_->CreateProducer();
   producer.Put(MakeChunk({frame}));

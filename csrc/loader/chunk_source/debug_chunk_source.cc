@@ -33,7 +33,7 @@ size_t DebugChunkSource::GetChunkCount() const {
   return *cached_chunk_count_;
 }
 
-std::optional<std::vector<V6TrainingData>> DebugChunkSource::GetChunkData(
+std::optional<std::vector<FrameType>> DebugChunkSource::GetChunkData(
     size_t index) {
   const auto seed_pair = std::make_pair(id_, index);
   const uint64_t seed = static_cast<uint64_t>(

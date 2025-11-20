@@ -1,4 +1,4 @@
-// ABOUTME: Stage that converts V6TrainingData frames into tensor batches.
+// ABOUTME: Stage that converts FrameType frames into tensor batches.
 // ABOUTME: Produces TensorTuple with tensors for training pipeline.
 #pragma once
 
@@ -8,8 +8,8 @@
 #include <stop_token>
 #include <vector>
 
-#include "libs/lc0/src/trainingdata/trainingdata_v6.h"
 #include "loader/data_loader_metrics.h"
+#include "loader/frame_type.h"
 #include "loader/stages/stage.h"
 #include "proto/data_loader_config.pb.h"
 #include "proto/training_metrics.pb.h"
@@ -20,10 +20,8 @@
 namespace lczero {
 namespace training {
 
-using FrameType = V6TrainingData;
-
-// Worker pool that converts V6TrainingData frames into tensor batches.
-// Takes individual V6TrainingData frames as input and outputs TensorTuple
+// Worker pool that converts FrameType frames into tensor batches.
+// Takes individual FrameType frames as input and outputs TensorTuple
 // containing batched tensors in the format required for training.
 class TensorGenerator
     : public SingleInputStage<TensorGeneratorConfig, FrameType>,

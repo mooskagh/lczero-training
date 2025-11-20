@@ -33,10 +33,16 @@ message FilePathProviderConfig {
 // sources. Maps to ChunkSourceLoaderOptions in
 // csrc/loader/chunk_feed/chunk_source_loader.h
 message ChunkSourceLoaderConfig {
+  enum FrameFormat {
+    V6TrainingData = 0;
+    V7TrainingData = 1;
+  }
   // Number of worker threads for loading.
   optional uint64 threads = 1 [default = 1];
   // Output queue configuration.
   optional QueueConfig output = 2;
+  // Training data frame format.
+  optional FrameFormat frame_format = 3;
 }
 
 message PositionSamplingConfig {

@@ -40,8 +40,9 @@ namespace {
 
 namespace fs = std::filesystem;
 
-using ::lczero::V6TrainingData;
 using ::lczero::training::ChunkSource;
+using ::lczero::training::ChunkSourceLoaderConfig;
+using ::lczero::training::FrameType;
 using ::lczero::training::TarChunkSource;
 
 std::vector<fs::path> CollectTarFiles(const fs::path& directory) {
@@ -85,16 +86,14 @@ std::vector<uint64_t> ParsePlaneValues(absl::string_view value_list) {
   return result;
 }
 
-bool PlanesMatch(const V6TrainingData& entry,
-                 absl::Span<const uint64_t> expected) {
+bool PlanesMatch(const FrameType& entry, absl::Span<const uint64_t> expected) {
   if (expected.size() > std::size(entry.planes)) return false;
   const size_t bytes = expected.size() * sizeof(uint64_t);
   return std::memcmp(entry.planes, expected.data(), bytes) == 0;
 }
 
 std::optional<size_t> FindMatchingFrameIndex(
-    const std::vector<V6TrainingData>& chunk,
-    absl::Span<const uint64_t> expected) {
+    const std::vector<FrameType>& chunk, absl::Span<const uint64_t> expected) {
   for (size_t frame = 0; frame < chunk.size(); ++frame) {
     if (PlanesMatch(chunk[frame], expected)) return frame;
   }
@@ -103,7 +102,7 @@ std::optional<size_t> FindMatchingFrameIndex(
 
 void WriteChunk(const fs::path& output_dir, absl::string_view base_name,
                 size_t index, size_t frame_index,
-                const std::vector<V6TrainingData>& chunk) {
+                const std::vector<FrameType>& chunk) {
   fs::create_directories(output_dir);
   const fs::path output_path =
       output_dir / absl::StrCat(base_name, "_", index, "_", frame_index, ".gz");
@@ -113,7 +112,7 @@ void WriteChunk(const fs::path& output_dir, absl::string_view base_name,
     LOG(FATAL) << "Failed to open output file: " << output_path.string();
   }
 
-  size_t remaining = chunk.size() * sizeof(V6TrainingData);
+  size_t remaining = chunk.size() * sizeof(FrameType);
   const char* data = reinterpret_cast<const char*>(chunk.data());
   while (remaining > 0) {
     const unsigned int to_write = static_cast<unsigned int>(
@@ -138,15 +137,15 @@ void WriteChunk(const fs::path& output_dir, absl::string_view base_name,
 
 void ProcessTar(const fs::path& tar_path, const fs::path& output_dir,
                 absl::Span<const uint64_t> expected_planes) {
-  std::unique_ptr<ChunkSource> source =
-      std::make_unique<TarChunkSource>(tar_path);
+  std::unique_ptr<ChunkSource> source = std::make_unique<TarChunkSource>(
+      tar_path, ChunkSourceLoaderConfig::V6TrainingData);
 
   const std::string base_name = tar_path.stem().string();
   size_t written_count = 0;
 
   for (size_t index = 0, total = source->GetChunkCount(); index < total;
        ++index) {
-    const std::optional<std::vector<V6TrainingData>> chunk =
+    const std::optional<std::vector<FrameType>> chunk =
         source->GetChunkData(index);
     if (!chunk) {
       LOG(WARNING) << "Skipping unreadable chunk " << index << " in "

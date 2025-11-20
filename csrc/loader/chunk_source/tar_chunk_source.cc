@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "trainingdata/trainingdata_v6.h"
 #include "utils/gz.h"
 
 namespace lczero {
@@ -109,9 +110,12 @@ std::optional<std::string> ReadGzipPrefix(FILE* file, long int offset,
 
 }  // namespace
 
-TarChunkSource::TarChunkSource(const std::filesystem::path& filename)
+TarChunkSource::TarChunkSource(
+    const std::filesystem::path& filename,
+    ChunkSourceLoaderConfig::FrameFormat frame_format)
     : file_(fopen(filename.string().c_str(), "rb")),
-      filename_(filename.filename().string()) {
+      filename_(filename.filename().string()),
+      frame_format_(frame_format) {
   if (!file_) throw std::runtime_error("Failed to open tar file");
   // Perform indexing during construction.
   Index();
@@ -167,7 +171,7 @@ void TarChunkSource::Index() {
 
 size_t TarChunkSource::GetChunkCount() const { return files_.size(); }
 
-std::optional<std::vector<V6TrainingData>> TarChunkSource::GetChunkData(
+std::optional<std::vector<FrameType>> TarChunkSource::GetChunkData(
     size_t index) {
   if (index >= files_.size()) {
     throw std::out_of_range("File index out of range");
@@ -184,15 +188,30 @@ std::optional<std::vector<V6TrainingData>> TarChunkSource::GetChunkData(
     }
   }
   if (content.empty()) return std::nullopt;
-  if (content.size() % sizeof(V6TrainingData) != 0) {
+
+  const size_t input_size =
+      frame_format_ == ChunkSourceLoaderConfig::V7TrainingData
+          ? sizeof(V7TrainingData)
+          : sizeof(V6TrainingData);
+  if (content.size() % input_size != 0) {
     LOG(WARNING) << "Chunk " << index << " from " << filename_ << " size "
-                 << content.size()
-                 << " is not a multiple of V6TrainingData size "
-                 << sizeof(V6TrainingData);
+                 << content.size() << " is not a multiple of input frame size "
+                 << input_size;
     return std::nullopt;
   }
-  std::vector<V6TrainingData> result(content.size() / sizeof(V6TrainingData));
-  std::memcpy(result.data(), content.data(), content.size());
+
+  const size_t num_frames = content.size() / input_size;
+  std::vector<V7TrainingData> result(num_frames);
+
+  if (frame_format_ == ChunkSourceLoaderConfig::V7TrainingData) {
+    std::memcpy(result.data(), content.data(), content.size());
+  } else {
+    const auto* v6_data =
+        reinterpret_cast<const V6TrainingData*>(content.data());
+    for (size_t i = 0; i < num_frames; ++i) {
+      std::memcpy(&result[i], &v6_data[i], sizeof(V6TrainingData));
+    }
+  }
   return result;
 }
 

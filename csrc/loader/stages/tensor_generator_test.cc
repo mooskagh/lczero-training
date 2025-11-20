@@ -44,14 +44,14 @@ class PassthroughStage : public Stage {
 class TensorGeneratorTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    input_queue_ = std::make_unique<Queue<V6TrainingData>>(100);
+    input_queue_ = std::make_unique<Queue<FrameType>>(100);
     config_.set_batch_size(4);
     config_.set_threads(1);
     config_.mutable_output()->set_queue_capacity(10);
   }
 
-  V6TrainingData CreateTestFrame() {
-    V6TrainingData frame{};
+  FrameType CreateTestFrame() {
+    FrameType frame{};
     std::memset(&frame, 0, sizeof(frame));
 
     frame.version = 6;
@@ -88,7 +88,7 @@ class TensorGeneratorTest : public ::testing::Test {
   }
 
   void VerifyTensorTuple(const TensorTuple& tensors,
-                         const std::vector<V6TrainingData>& frames) {
+                         const std::vector<FrameType>& frames) {
     ASSERT_EQ(tensors.size(), 5);
     const size_t batch_size = frames.size();
 
@@ -135,7 +135,7 @@ class TensorGeneratorTest : public ::testing::Test {
   }
 
   void VerifyTensorData(const TensorTuple& tensors,
-                        const std::vector<V6TrainingData>& frames) {
+                        const std::vector<FrameType>& frames) {
     const size_t batch_size = frames.size();
     const auto* planes_tensor =
         dynamic_cast<const TypedTensor<float>*>(tensors[0].get());
@@ -219,7 +219,7 @@ class TensorGeneratorTest : public ::testing::Test {
     }
   }
 
-  std::unique_ptr<Queue<V6TrainingData>> input_queue_;
+  std::unique_ptr<Queue<FrameType>> input_queue_;
   TensorGeneratorConfig config_;
 };
 
@@ -229,7 +229,7 @@ TEST_F(TensorGeneratorTest, GeneratesCorrectTensorShapes) {
   generator.Start();
 
   auto producer = input_queue_->CreateProducer();
-  std::vector<V6TrainingData> frames;
+  std::vector<FrameType> frames;
   for (size_t i = 0; i < config_.batch_size(); ++i) {
     frames.push_back(CreateTestFrame());
     producer.Put(frames.back());
@@ -246,7 +246,7 @@ TEST_F(TensorGeneratorTest, GeneratesCorrectTensorData) {
   generator.Start();
 
   auto producer = input_queue_->CreateProducer();
-  std::vector<V6TrainingData> frames;
+  std::vector<FrameType> frames;
   for (size_t i = 0; i < config_.batch_size(); ++i) {
     frames.push_back(CreateTestFrame());
     producer.Put(frames.back());
@@ -266,7 +266,7 @@ TEST_F(TensorGeneratorTest, HandlesMultipleBatches) {
   auto producer = input_queue_->CreateProducer();
 
   // Send two full batches.
-  std::vector<V6TrainingData> all_frames;
+  std::vector<FrameType> all_frames;
   for (ssize_t batch = 0; batch < 2; ++batch) {
     for (size_t i = 0; i < config_.batch_size(); ++i) {
       auto frame = CreateTestFrame();
@@ -279,13 +279,13 @@ TEST_F(TensorGeneratorTest, HandlesMultipleBatches) {
 
   // Get first batch.
   auto tensors1 = generator.output_queue()->Get();
-  std::vector<V6TrainingData> batch1_frames(
+  std::vector<FrameType> batch1_frames(
       all_frames.begin(), all_frames.begin() + config_.batch_size());
   VerifyTensorTuple(tensors1, batch1_frames);
 
   // Get second batch.
   auto tensors2 = generator.output_queue()->Get();
-  std::vector<V6TrainingData> batch2_frames(
+  std::vector<FrameType> batch2_frames(
       all_frames.begin() + config_.batch_size(), all_frames.end());
   VerifyTensorTuple(tensors2, batch2_frames);
 
@@ -300,7 +300,7 @@ TEST_F(TensorGeneratorTest, HandlesDifferentBatchSizes) {
   generator.Start();
 
   auto producer = input_queue_->CreateProducer();
-  std::vector<V6TrainingData> frames;
+  std::vector<FrameType> frames;
   for (size_t i = 0; i < config_.batch_size(); ++i) {
     frames.push_back(CreateTestFrame());
     producer.Put(frames.back());
@@ -331,7 +331,7 @@ TEST_F(TensorGeneratorTest, VerifiesPlanesConversion) {
 
   auto producer = input_queue_->CreateProducer();
 
-  V6TrainingData frame = CreateTestFrame();
+  FrameType frame = CreateTestFrame();
   // Set specific bit pattern for plane 0.
   frame.planes[0] = 0xAAAAAAAAAAAAAAAAULL;  // Alternating bits
   // Set specific values for meta planes.
@@ -370,7 +370,7 @@ TEST_F(TensorGeneratorTest, VerifiesQDConversion) {
 
   auto producer = input_queue_->CreateProducer();
 
-  V6TrainingData frame = CreateTestFrame();
+  FrameType frame = CreateTestFrame();
   // Test specific Q/D values.
   frame.result_q = 0.4f;
   frame.result_d = 0.3f;
