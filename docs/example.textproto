@@ -161,6 +161,6 @@ metrics {
   tensorboard_path: "/tmp/tensorboard/myrun"
 }
 export {
-  path: "/home/crem/tmp/2025-08/lc0_training/exported_models/"
+  destination_filename: "/home/crem/tmp/2025-08/lc0_training/exported_models/lc0-{datetime}-{step:08d}.pb.gz"
   upload_training_run: 3
 }
